@@ -52,6 +52,7 @@ fn addsubs(dir: &Path, videoformat: &str, subformat: &str, lang: &str) -> Result
     for (sub, vid) in file_iter.clone() {
         println!("{}\t{}", sub, vid);
     }
+
     println!("Are these pairs correct? (Y/n): ");
     let mut answer = String::new();
     std::io::stdin().read_line(&mut answer)?;
@@ -60,17 +61,15 @@ fn addsubs(dir: &Path, videoformat: &str, subformat: &str, lang: &str) -> Result
     // Run commands
     Command::new("mkdir").arg("output").output().expect("Could not create output folder.");
     for (s,v) in file_iter {
-        let mut o: String = "output/".into();
-        o.push_str(v);
         Command::new("mkvmerge").args([
             "-o",
-            format!("'{}'", o).as_str(),
-            format!("'{}'", v).as_str(),
+            &format!("'output/{}'", v),
+            &format!("'{}'", v),
             "--language",
-            format!("0:{}", lang).as_str(),
+            &format!("0:{}", lang),
             "--track-name",
-            format!("0:{}", langs.get(lang).unwrap()).as_str(),
-            format!("'{}'", s).as_str()
+            &format!("0:{}", langs.get(lang).unwrap()),
+            &format!("'{}'", s)
         ]).output().expect("mkvmerge command failed to run. Is mkvmerge installed?");
     }
     
