@@ -10,6 +10,7 @@ pub enum ProgramError {
     MismatchError,
     LangError,
     ExitError,
+	NoArgumentError
 }
 
 impl Error for ProgramError {}
@@ -19,6 +20,7 @@ impl fmt::Display for ProgramError {
             ProgramError::MismatchError => write!(f, "Not the same amount of video and sub files."),
             ProgramError::LangError => write!(f, "Language not supported."),
             ProgramError::ExitError => write!(f, "User cancelled."),
+			ProgramError::NoArgumentError => write!(f, "Not enough arguments provided.")
         }
     }
 }
@@ -52,7 +54,7 @@ fn addsubs(dir: &Path, videoformat: &str, subformat: &str, lang: &str) -> Result
     let file_iter = subfiles.iter().zip(videofiles.iter()); 
     for (sub, vid) in file_iter.clone() {
         println!("{}\t{}", sub, vid);
-    }
+    } 
 
     println!("Are these pairs correct? (Y/n): ");
     let mut answer = String::new();
@@ -86,6 +88,15 @@ fn addsubs(dir: &Path, videoformat: &str, subformat: &str, lang: &str) -> Result
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+	if args.len() < 5 {
+		println!("The program requires 4 arguments to be provided:");
+		println!("\t1. directory");
+		println!("\t2. video file format (e.g. mkv)");
+		println!("\t3. sub file format (e.g. srt)");
+		println!("\t4. supported language code (e.g. jpn)");
+		panic!("{}", ProgramError::NoArgumentError.to_string());
+	}
+
     let res = addsubs(Path::new(&args[1]), &args[2], &args[3], &args[4]).unwrap();
     for buf in res {
         let rs = match str::from_utf8(&buf) {
