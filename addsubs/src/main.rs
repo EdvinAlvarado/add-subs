@@ -94,7 +94,7 @@ fn main() {
 		println!("\t2. video file format (e.g. mkv)");
 		println!("\t3. sub file format (e.g. srt)");
 		println!("\t4. supported language code (e.g. jpn)");
-		panic!("{}", ProgramError::NoArgumentError.to_string());
+		panic!("{}", ProgramError::NoArgumentError);
 	}
 
     let res = addsubs(Path::new(&args[1]), &args[2], &args[3], &args[4]).unwrap();
