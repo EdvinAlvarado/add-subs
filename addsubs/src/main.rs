@@ -9,9 +9,10 @@ use std::process::Command;
 #[derive(Debug)]
 pub enum ProgramError {
     MismatchError,
-    LangError,
+    LangError(Box<str>),
     ExitError,
-	NoArgumentError
+	NoArgumentError,
+	InputError(std::io::Error)
 }
 
 impl Error for ProgramError {}
@@ -19,11 +20,18 @@ impl fmt::Display for ProgramError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ProgramError::MismatchError => write!(f, "Not the same amount of video and sub files."),
-            ProgramError::LangError => write!(f, "Language not supported."),
+            ProgramError::LangError(lang) => write!(f, "{} language not supported.", *lang),
             ProgramError::ExitError => write!(f, "User cancelled."),
-			ProgramError::NoArgumentError => write!(f, "Not enough arguments provided.")
+			ProgramError::NoArgumentError => write!(f, "Not enough arguments provided."),
+			ProgramError::InputError(e) => write!(f, "Input error: {}", e),
         }
     }
+}
+
+impl From<std::io::Error> for ProgramError {
+	fn from(err: std::io::Error) -> ProgramError {
+		ProgramError::InputError(err)
+	}
 }
 
 type Stdout = Vec<u8>;
@@ -37,19 +45,18 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
                               ("spa", "Spanish"),
                               ("und", "Undetermined"),
     ]);
-    if !langs.contains_key(lang) {return Err(ProgramError::LangError);}
 
     // Create list of files.
     let mut videofiles = Vec::new();
     let mut subfiles = Vec::new();
-    for file in fs::read_dir(dir.as_ref()).unwrap() {
-        let f: Rc<str> = file.unwrap().file_name().to_str().unwrap().into();
+    for file in fs::read_dir(dir.as_ref())? {
+        let f: Rc<str> = file?.file_name().to_string_lossy().into();
         if f.contains(videoformat) {videofiles.push(f);}
         else if f.contains(subformat) {subfiles.push(f);}
     }
     videofiles.sort();
     subfiles.sort();
-    //if videofiles.len() == subfiles.len() {return Err(Box::new(ProgramError::MismatchError));}
+    //if videofiles.len() == subfiles.len() {return Err(ProgramError::MismatchError);}
 
     // Check
     println!("Joining sub files to these video files.");
@@ -60,7 +67,7 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
 
     println!("Are these pairs correct? (Y/n): ");
     let mut answer = String::new();
-    std::io::stdin().read_line(&mut answer).unwrap();
+    std::io::stdin().read_line(&mut answer)?;
     if answer.contains("n") {return Err(ProgramError::ExitError);}
 
 
@@ -77,7 +84,7 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
         "--language",
         &format!("0:{}", lang),
         "--track-name",
-        &format!("0:{}", langs.get(lang).unwrap()),
+        &format!("0:{}", langs.get(lang).ok_or(ProgramError::LangError(lang.into()))?),
         &format!("{}", s)
         ];
         
@@ -88,7 +95,7 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
     Ok(res)
 }
 
-fn main() {
+fn main() -> Result<(), ProgramError> {
     let args: Rc<[String]> = std::env::args().collect();
 	if args.len() < 5 {
 		println!("The program requires 4 arguments to be provided:");
@@ -96,11 +103,12 @@ fn main() {
 		println!("\t2. video file format (e.g. mkv)");
 		println!("\t3. sub file format (e.g. srt)");
 		println!("\t4. supported language code (e.g. jpn)");
-		panic!("{}", ProgramError::NoArgumentError);
+		return Err(ProgramError::NoArgumentError);
 	}
 
-    for res in addsubs(&args[1], &args[2], &args[3], &args[4]).unwrap().iter() {
-		let rs = str::from_utf8(res).unwrap();
+    for res in addsubs(&args[1], &args[2], &args[3], &args[4])?.iter() {
+		let rs = String::from_utf8_lossy(res);
 		println!("{}", rs);
 	}
+	Ok(())
 }
