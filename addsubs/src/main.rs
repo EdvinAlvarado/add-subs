@@ -70,6 +70,7 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
         println!("{}\t{}", sub, vid);
     } 
 
+	// User confirmation
     println!("Are these pairs correct? (Y/n): ");
     let mut answer = String::new();
     std::io::stdin().read_line(&mut answer)?;
