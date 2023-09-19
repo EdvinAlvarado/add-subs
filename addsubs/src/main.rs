@@ -26,7 +26,7 @@ impl fmt::Display for ProgramError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ProgramError::MismatchError => write!(f, "Not the same amount of video and sub files."),
-            ProgramError::LangError(lang) => write!(f, "{} language not supported.", *lang),
+            ProgramError::LangError(lang) => write!(f, "{} language not supported.", lang),
             ProgramError::ExitError => write!(f, "User cancelled."),
 			ProgramError::InputError(e) => write!(f, "Input error: {}", e),
 			ProgramError::NoArgumentError => write!(f,"{}", NOARGUMENT),
@@ -98,7 +98,6 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
         let output = Command::new("mkvmerge").args(args).output()?;
         res.push(output.stdout);
     }
- 
     Ok(res)
 }
 
@@ -106,8 +105,8 @@ fn main() -> Result<(), MainError> {
     let args: Rc<[String]> = std::env::args().collect();
 	(args.len() == 5).then_some(0).ok_or(ProgramError::NoArgumentError)?;
 
-    for res in addsubs(&args[1], &args[2], &args[3], &args[4])?.iter() {
-		let rs = String::from_utf8_lossy(res);
+    for res in addsubs(&args[1], &args[2], &args[3], &args[4])? {
+		let rs = String::from_utf8_lossy(&res);
 		println!("{}", rs);
 	}
 	Ok(())
