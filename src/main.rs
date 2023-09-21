@@ -1,25 +1,19 @@
 use std::path::Path;
 use std::error::Error;
-use std::rc::Rc;
 use std::{fs, fmt, str};
 use std::collections::HashMap;
 use std::process::Command;
 use main_error::MainError;
+use clap::Parser;
 
 #[derive(Debug)]
 pub enum ProgramError {
     MismatchError,
     LangError(Box<str>),
     ExitError,
-	NoArgumentError,
 	InputError(std::io::Error),
 }
 
-static NOARGUMENT: &str = "The program requires 4 arguments to be provide:
-\t 1. directory
-\t 2. video file format (e.g. mkv)
-\t 3. sub file format (e.g. srt)
-\t 4. supported language code (e.g. jpn)";
 
 impl Error for ProgramError {}
 impl fmt::Display for ProgramError {
@@ -29,7 +23,6 @@ impl fmt::Display for ProgramError {
             ProgramError::LangError(lang) => write!(f, "{} language not supported.", lang),
             ProgramError::ExitError => write!(f, "User cancelled."),
 			ProgramError::InputError(e) => write!(f, "Input error: {}", e),
-			ProgramError::NoArgumentError => write!(f,"{}", NOARGUMENT),
         }
     }
 }
@@ -61,7 +54,7 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
     }
     videofiles.sort();
     subfiles.sort();
-    //if videofiles.len() == subfiles.len() {return Err(ProgramError::MismatchError);}
+    if videofiles.len() == subfiles.len() {return Err(ProgramError::MismatchError);}
 
     // Check
     println!("Joining sub files to these video files.");
@@ -101,11 +94,30 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
     Ok(res)
 }
 
-fn main() -> Result<(), MainError> {
-    let args: Rc<[String]> = std::env::args().collect();
-	(args.len() == 5).then_some(0).ok_or(ProgramError::NoArgumentError)?;
+/// mkvmerge wrapper to bulk add subtitles to videofiles.
+/// An output folder will be created with the multiplexed video files.
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+	/// Directory with the video and sub files.
+	#[arg(short, long, default_value=".")]
+	dir: Box<str>,
+	/// video file extension 
+	#[arg(short, long, default_value="mkv")]
+	videoformat: Box<str>,
+	/// sub file extension
+	#[arg(short, long, default_value="srt")]
+	subformat: Box<str>,
+	/// ISO 639-2 language abbreviation
+	#[arg(short, long, default_value="jpn")]
+	lang: Box<str>,
+}
 
-    for res in addsubs(&args[1], &args[2], &args[3], &args[4])? {
+
+fn main() -> Result<(), MainError> {
+    let args = Args::parse();
+
+    for res in addsubs(args.dir.as_ref(), &args.videoformat, &args.subformat, &args.lang)? {
 		let rs = String::from_utf8_lossy(&res);
 		println!("{}", rs);
 	}
