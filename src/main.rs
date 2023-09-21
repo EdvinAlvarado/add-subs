@@ -1,10 +1,10 @@
-use std::path::Path;
 use std::error::Error;
-use std::{fs, fmt, str};
+use std::{fs, fmt, str, thread};
 use std::collections::HashMap;
 use std::process::Command;
 use main_error::MainError;
 use clap::Parser;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum ProgramError {
@@ -33,8 +33,9 @@ impl From<std::io::Error> for ProgramError {
 }
 
 type Stdout = Vec<u8>;
+type ProgramResult<T> = Result<T, ProgramError>;
 
-fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &str) -> Result<Vec<Stdout>, ProgramError> {
+fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 
     // ISO 639.2
     let langs = HashMap::from([
@@ -47,14 +48,14 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
     // Create list of files.
     let mut videofiles = Vec::new();
     let mut subfiles = Vec::new();
-    for file in fs::read_dir(dir.as_ref())? {
-        let f: Box<str> = file?.file_name().to_string_lossy().into();
-        if f.contains(videoformat) {videofiles.push(f);}
-        else if f.contains(subformat) {subfiles.push(f);}
+    for file in fs::read_dir(params.dir.as_ref())? {
+        let f: Arc<str> = file?.file_name().to_string_lossy().into();
+        if f.contains(params.videoformat.as_ref()) {videofiles.push(f);}
+        else if f.contains(params.subformat.as_ref()) {subfiles.push(f);}
     }
     videofiles.sort();
     subfiles.sort();
-    if videofiles.len() == subfiles.len() {return Err(ProgramError::MismatchError);}
+    if videofiles.len() != subfiles.len() {return Err(ProgramError::MismatchError);}
 
     // Check
     println!("Joining sub files to these video files.");
@@ -71,37 +72,42 @@ fn addsubs<P: AsRef<Path>>(dir: P, videoformat: &str, subformat: &str, lang: &st
 
 
     // Run commands
-    let mut res = Vec::with_capacity(videofiles.len());
     Command::new("mkdir").arg("output").output()?;
+	let mut threads = Vec::with_capacity(videofiles.len());
+	let cmd_lang: Arc<str> = format!("0:{}", params.lang).into();
+	let cmd_long_lang: Arc<str> = format!("0:{}", langs.get(params.lang.as_ref()).ok_or(ProgramError::LangError(params.lang.into()))?).into();
     for (s,v) in file_iter {
         println!("{}", v);
-		
+
 		// mkvmerge -o [dir]/output/[videofile] [videofile] --language 0:jpn --track-name 0:Japanese [subfile]
-        let args = [
-        "-o",
-        &format!("{}/output/{}",dir.as_ref().display(), v),
-        &format!("{}", v),
-        "--language",
-        &format!("0:{}", lang),
-        "--track-name",
-        &format!("0:{}", langs.get(lang).ok_or(ProgramError::LangError(lang.into()))?),
-        &format!("{}", s)
-        ];
-        
-        let output = Command::new("mkvmerge").args(args).output()?;
-        res.push(output.stdout);
+		let args: [Arc<str>; 8] = [
+		"-o".into(),
+		format!("{}/output/{}",params.dir, v).as_str().into(),
+		v.clone(),
+		"--language".into(),
+		cmd_lang.clone(),
+		"--track-name".into(),
+		cmd_long_lang.clone(),
+		s.clone()
+		];
+		
+		threads.push(thread::spawn(move || -> ProgramResult<Stdout> {
+			let arg_iter =  args.iter().map(|s| s.as_ref());
+			let output = Command::new("mkvmerge").args(arg_iter).output()?;
+			Ok(output.stdout)
+		}));
     }
-    Ok(res)
+    Ok(threads.into_iter().map(|t| t.join().unwrap()).collect())
 }
 
 /// mkvmerge wrapper to bulk add subtitles to videofiles.
 /// An output folder will be created with the multiplexed video files.
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about)]
 struct Args {
 	/// Directory with the video and sub files.
 	#[arg(short, long, default_value=".")]
-	dir: Box<str>,
+	dir: Arc<str>,
 	/// video file extension 
 	#[arg(short, long, default_value="mkv")]
 	videoformat: Box<str>,
@@ -117,8 +123,9 @@ struct Args {
 fn main() -> Result<(), MainError> {
     let args = Args::parse();
 
-    for res in addsubs(args.dir.as_ref(), &args.videoformat, &args.subformat, &args.lang)? {
-		let rs = String::from_utf8_lossy(&res);
+    for res in addsubs(args)? {
+		let stdout = res?;
+		let rs = String::from_utf8_lossy(&stdout);
 		println!("{}", rs);
 	}
 	Ok(())
