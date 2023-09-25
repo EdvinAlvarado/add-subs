@@ -46,8 +46,8 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     ]);
 
     // Create list of files.
-    let mut videofiles = Vec::new();
-    let mut subfiles = Vec::new();
+    let mut videofiles = Vec::with_capacity(12);
+    let mut subfiles = Vec::with_capacity(12);
     for file in fs::read_dir(params.dir.as_ref())? {
         let f: Arc<str> = file?.file_name().to_string_lossy().into();
         if f.contains(params.videoformat.as_ref()) {videofiles.push(f);}
