@@ -89,8 +89,8 @@ func AddSubs(dir string, videoformat string, subformat string, lang string) ([]O
 	}
 
 	// Run mkvmerge for all the files
-	ret := make([]Output, 0, len(videofiles))
 	var wg sync.WaitGroup
+	ch := make(chan Output, len(subfiles))
 	for i, s := range subfiles {
 		wg.Add(1)
 		v := videofiles[i]
@@ -106,15 +106,21 @@ func AddSubs(dir string, videoformat string, subformat string, lang string) ([]O
 			"0:" + langs[lang],
 			s}, " ")
 
-		go func(pos int, args string) {
+		go func(args string) {
 			defer wg.Done()
 			cmdMerge := exec.Command("mkvmerge", args)
 			out, err := cmdMerge.Output()
-			ret[pos] = Output{out, err}
-		}(i, args)
+			ch <- Output{out, err}
+		}(args)
 	}
 
 	wg.Wait()
+	close(ch)
+	ret := make([]Output, 0, len(subfiles))
+	for output := range ch {
+		ret = append(ret, output)
+	}
+
 	return ret, nil
 }
 
