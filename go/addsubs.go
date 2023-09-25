@@ -47,7 +47,7 @@ func AddSubs(dir string, videoformat string, subformat string, lang string) ([]O
 	subfiles := make([]string, 0, 12)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	for _, entry := range entries {
 		if !entry.IsDir() {
