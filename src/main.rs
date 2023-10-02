@@ -69,7 +69,7 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     let mut answer = String::new();
     std::io::stdin().read_line(&mut answer)?;
     if answer.contains("n") {return Err(ProgramError::ExitError);}
-
+	
 
     // Run commands
     Command::new("mkdir").arg("output").output()?;
@@ -77,7 +77,6 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 	let cmd_lang: Arc<str> = format!("0:{}", params.lang).into();
 	let cmd_long_lang: Arc<str> = format!("0:{}", langs.get(params.lang.as_ref()).ok_or(ProgramError::LangError(params.lang.into()))?).into();
     for (s,v) in file_iter {
-        println!("{}", v);
 
 		// mkvmerge -o [dir]/output/[videofile] [videofile] --language 0:jpn --track-name 0:Japanese [subfile]
 		let args: [Arc<str>; 8] = [
@@ -90,10 +89,12 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 		cmd_long_lang.clone(),
 		s.clone()
 		];
-		
+	
+		let vc = v.clone();
 		threads.push(thread::spawn(move || -> ProgramResult<Stdout> {
 			let arg_iter =  args.iter().map(|s| s.as_ref());
 			let output = Command::new("mkvmerge").args(arg_iter).output()?;
+        	println!("Multiplexing {vc}");
 			Ok(output.stdout)
 		}));
     }

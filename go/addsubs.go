@@ -113,7 +113,6 @@ func AddSubs(dir string, videoformat string, subformat string, lang string) ([]O
 			ch <- Output{out, err}
 		}(args)
 	}
-
 	wg.Wait()
 	close(ch)
 	ret := make([]Output, 0, len(subfiles))
