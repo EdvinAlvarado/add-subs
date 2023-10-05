@@ -1,39 +1,28 @@
-use std::error::Error;
-use std::{fs, fmt, str, thread};
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::{fs, str, thread};
 use std::process::Command;
 use main_error::MainError;
 use clap::Parser;
-use std::sync::Arc;
+use thiserror::Error;
 
-#[derive(Debug)]
+
+#[derive(Debug, Error)]
 pub enum ProgramError {
+	#[error("Not the same amount of video and sub files.")]
     MismatchError,
+	#[error("{0} language not supported.")]
     LangError(Box<str>),
+	#[error("User cancelled.")]
     ExitError,
-	InputError(std::io::Error),
+	#[error("IO error: {0}")]
+	InputError(#[from] std::io::Error),
 }
 
-
-impl Error for ProgramError {}
-impl fmt::Display for ProgramError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ProgramError::MismatchError => write!(f, "Not the same amount of video and sub files."),
-            ProgramError::LangError(lang) => write!(f, "{} language not supported.", lang),
-            ProgramError::ExitError => write!(f, "User cancelled."),
-			ProgramError::InputError(e) => write!(f, "Input error: {}", e),
-        }
-    }
-}
-impl From<std::io::Error> for ProgramError {
-	fn from(err: std::io::Error) -> ProgramError {
-		ProgramError::InputError(err)
-	}
-}
 
 type Stdout = Vec<u8>;
 type ProgramResult<T> = Result<T, ProgramError>;
+
 
 fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 
@@ -100,6 +89,7 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     }
     Ok(threads.into_iter().map(|t| t.join().unwrap()).collect())
 }
+
 
 /// mkvmerge wrapper to bulk add subtitles to videofiles.
 /// An output folder will be created with the multiplexed video files.
