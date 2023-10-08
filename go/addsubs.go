@@ -82,7 +82,7 @@ func AddSubs(dir string, videoformat string, subformat string, lang string) ([]O
 	}
 
 	// Make output directory
-	cmd := exec.Command("mkdir", "output")
+	cmd := exec.Command("mkdir", dir+"/output")
 	err = cmd.Run()
 	if err != nil {
 		return nil, err
