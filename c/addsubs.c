@@ -25,6 +25,34 @@ enum ProgramError {
 	THREAD_JOIN_ERR,
 };
 
+string program_error_msg(int err) {
+	switch (err) {
+		case LANGUAGE_ERR:
+			return "error: language not supported.";
+		case DIR_ERR:
+			return "error: that is not a directory.";
+		case NO_FILE_ERR:
+			return "error: either there are no video files or sub files that meet the file format specified.";
+		case MISMATCH_ERR:
+			return "error: no equal ammount of video and sub files.";
+		case RESPONSE_ERR:
+			return "error: response was too long?";
+		case USER_CANCEL:
+		case OUTPUT_MKDIR_ERR:
+			return "error: mkdir error out unexepectedly. Check permissios on the directory.";
+		case SNPRINTF_ERR:
+			return "error: encoding failed or command line string too long.";
+		case ARG_COUNT_ERR:
+			return "error: wrong amount of arguments.";
+		case THREAD_CREATE_ERR:
+			return "error: thread create failed.";
+		case THREAD_JOIN_ERR:
+			return "error: pthread join failed.";
+		default:
+			return "undefined error";
+	}
+}
+
 typedef struct	{
 	string *ptr;
 	size_t len;
@@ -77,6 +105,7 @@ void* run_cmd(void* input) {
 int addsubs(const string dir, const string videoformat, const string subformat, const string lang) {
 	string language = langs(lang);
 	if (language == NULL) {
+		puts(program_error_msg(LANGUAGE_ERR));
 		return LANGUAGE_ERR;
 	}
 
@@ -85,7 +114,7 @@ int addsubs(const string dir, const string videoformat, const string subformat, 
 
 	DIR *folder = opendir(dir);
 	if (folder == NULL) {
-		puts("error: that is not a directory.");
+		puts(program_error_msg(DIR_ERR));
 		return DIR_ERR;
 	}
 
@@ -102,11 +131,11 @@ int addsubs(const string dir, const string videoformat, const string subformat, 
 	closedir(folder);
 
 	if (videofiles.len == 0 || subfiles.len == 0) {
-		puts("error: either there are no video files or sub files that meet the file format specified.");
+		puts(program_error_msg(NO_FILE_ERR));
 		return NO_FILE_ERR;
 	}
 	if (videofiles.len != subfiles.len) {
-		puts("error: no equal ammount of video and sub files.");
+		puts(program_error_msg(MISMATCH_ERR));
 		return MISMATCH_ERR;
 	}
 
@@ -116,7 +145,7 @@ int addsubs(const string dir, const string videoformat, const string subformat, 
 	puts("Are these pairs correct? (Y/n):");
 	char response[10];
 	if (scanf("%s", response) < 0) {
-		puts("error: response was too long?");
+		puts(program_error_msg(RESPONSE_ERR));
 		return RESPONSE_ERR;
 	}
 	if (strstr(response, "n") != NULL) {return USER_CANCEL;}
@@ -126,7 +155,7 @@ int addsubs(const string dir, const string videoformat, const string subformat, 
 	strcat(output_dir, "/output");
 	int ret = mkdir(output_dir, 0777);
 	if (ret != 0 && errno != EEXIST) {
-		puts("error: mkdir error out unexepectedly. Check permissios on the directory.");
+		puts(program_error_msg(OUTPUT_MKDIR_ERR));
 		return OUTPUT_MKDIR_ERR;
 	}
 
@@ -139,20 +168,20 @@ int addsubs(const string dir, const string videoformat, const string subformat, 
 		char cmd[1000];
 		int ret = snprintf(cmd, 1000, "mkvmerge -o %s/output/%s %s --language 0:%s --track-name 0:%s", dir, vid, vid, lang, language);
 		if (ret < 0) {
-			puts("error: encoding failed or command line string too long.");
+			puts(program_error_msg(SNPRINTF_ERR));
 			return SNPRINTF_ERR;
 		}
 		
 		ret = pthread_create(&thread_id, NULL, run_cmd, (void*)cmd);
 		if (ret != 0) {
-			puts("error: thread create failed.");
+			puts(program_error_msg(THREAD_CREATE_ERR));
 			return THREAD_CREATE_ERR;
 		}
 		
 	}
 	ret = pthread_join(thread_id,NULL);
 	if (ret != 0) {
-		puts("error: pthread join failed.");
+		puts(program_error_msg(THREAD_JOIN_ERR));
 		return THREAD_JOIN_ERR;
 	}
 	return 0;
@@ -161,7 +190,10 @@ int addsubs(const string dir, const string videoformat, const string subformat, 
 
 
 int main(int argc, string argv[]) { 
-	if (argc != 5) {return ARG_COUNT_ERR;}
+	if (argc != 5) {
+		puts(program_error_msg(ARG_COUNT_ERR));
+		return ARG_COUNT_ERR;
+	}
 	int ret = addsubs(argv[1], argv[2], argv[3], argv[4]);
 	if (ret != 0) {
 		return ret;
