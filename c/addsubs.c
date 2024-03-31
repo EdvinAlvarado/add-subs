@@ -20,6 +20,7 @@ enum ProgramError {
 	USER_CANCEL,
 	OUTPUT_MKDIR_ERR,
 	SNPRINTF_ERR,
+	SPRINTF_ERR,
 	ARG_COUNT_ERR,
 	THREAD_CREATE_ERR,
 	THREAD_JOIN_ERR,
@@ -42,6 +43,8 @@ string program_error_msg(int err) {
 			return "error: mkdir error out unexepectedly. Check permissios on the directory.";
 		case SNPRINTF_ERR:
 			return "error: encoding failed or command line string too long.";
+		case SPRINTF_ERR:
+			return "error: sprintf encoding failed";
 		case ARG_COUNT_ERR:
 			return "error: wrong amount of arguments.";
 		case THREAD_CREATE_ERR:
@@ -150,9 +153,10 @@ int addsubs(const string dir, const string videoformat, const string subformat, 
 	}
 	if (strstr(response, "n") != NULL) {return USER_CANCEL;}
 
-	char output_dir[100] = "";
+	const string os = "/output";
+	string output_dir = malloc(strlen(dir) + strlen(os) +  1);
 	strcpy(output_dir, dir);
-	strcat(output_dir, "/output");
+	strcat(output_dir, os);
 	int ret = mkdir(output_dir, 0777);
 	if (ret != 0 && errno != EEXIST) {
 		puts(program_error_msg(OUTPUT_MKDIR_ERR));
@@ -165,11 +169,13 @@ int addsubs(const string dir, const string videoformat, const string subformat, 
 		string sub = subfiles.ptr[i];
 		string vid = videofiles.ptr[i];
 
-		char cmd[1000];
-		int ret = snprintf(cmd, 1000, "mkvmerge -o %s/output/%s %s --language 0:%s --track-name 0:%s", dir, vid, vid, lang, language);
+		const string mkvmerge_cmd_str = "mkvmerge -o %s/%s %s --language 0:%s --track-name 0:%s";
+		const int mkvmerge_cmd_strlen = 1 + strlen(mkvmerge_cmd_str) + strlen(output_dir) + 2*strlen(vid) + strlen(lang) + strlen(language);
+		string cmd = malloc(mkvmerge_cmd_strlen);
+		int ret = sprintf(cmd, mkvmerge_cmd_str, output_dir, vid, vid, lang, language);
 		if (ret < 0) {
-			puts(program_error_msg(SNPRINTF_ERR));
-			return SNPRINTF_ERR;
+			puts(program_error_msg(SPRINTF_ERR));
+			return SPRINTF_ERR;
 		}
 		
 		ret = pthread_create(&thread_id, NULL, run_cmd, (void*)cmd);
