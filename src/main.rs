@@ -60,10 +60,11 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     if answer.contains("n") {return Err(ProgramError::ExitError);}
 	
 
-    // Run commands
-    Command::new("mkdir")
-        .arg(format!("{}/output", params.dir))
-        .output()?;
+	// Create output folder
+	let output_dir: Arc<str> = format!("{}/output", params.dir).into();
+	fs::create_dir(output_dir.as_ref())?;
+    
+	// Run commands
     let mut threads = Vec::with_capacity(videofiles.len());
     let cmd_lang: Arc<str> = format!("0:{}", params.lang).into();
     let cmd_long_lang: Arc<str> = format!(
@@ -77,7 +78,7 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
         // mkvmerge -o [dir]/output/[videofile] [videofile] --language 0:jpn --track-name 0:Japanese [subfile]
         let args: [Arc<str>; 8] = [
             "-o".into(),
-            format!("{}/output/{}", params.dir, v).as_str().into(),
+            format!("{}/{}", output_dir, v).into(),
             v.clone(),
             "--language".into(),
             cmd_lang.clone(),
