@@ -1,6 +1,8 @@
 use clap::Parser;
 use main_error::MainError;
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 use std::{fs, str, thread};
@@ -12,7 +14,7 @@ pub enum ProgramError {
 	#[error("Not the same amount of video and sub files.")]
     MismatchError,
 	#[error("{0} language not supported.")]
-    LangError(Box<str>),
+    LangError(Arc<str>),
 	#[error("User cancelled.")]
     ExitError,
 	#[error("IO error: {0}")]
@@ -24,6 +26,20 @@ type Stdout = Vec<u8>;
 type ProgramResult<T> = Result<T, ProgramError>;
 
 
+// mkvmerge -o [dir]/output/[videofile] [videofile] --language 0:jpn --track-name 0:Japanese [subfile]
+fn mkvmerge<P: AsRef<Path>, S: AsRef<str> + Display>(output_dir: P, videofile_src: S, language: S, track_name: S, subfile_src: S) -> Command {
+	let lang: Box<str> = format!("0:{}", language).into();
+	let track: Box<str> = format!("0:{}", track_name).into();
+	let mut videofile_out = output_dir.as_ref().to_path_buf();
+	videofile_out.push(videofile_src.as_ref());
+	let args = ["-o", &videofile_out.to_string_lossy(), videofile_src.as_ref(), "--language", lang.as_ref(), "--track-name", track.as_ref(), subfile_src.as_ref()];
+
+	let mut cmd = Command::new("mkvmerge");
+	cmd.args(args);
+	cmd
+}
+
+
 fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 
     // ISO 639.2
@@ -33,6 +49,7 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
                               ("spa", "Spanish"),
                               ("und", "Undetermined"),
     ]);
+    let language: Arc<str> = (*langs.get(params.lang.as_ref()).ok_or(ProgramError::LangError(params.lang.clone()))?).into();
 
     // Create list of files.
     let mut videofiles = Vec::with_capacity(12);
@@ -61,36 +78,19 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 	
 
 	// Create output folder
-	let output_dir: Arc<str> = format!("{}/output", params.dir).into();
+	let odf: PathBuf = format!("{}/output", params.dir).into();
+	let output_dir: Arc<Path> = odf.into();
 	fs::create_dir(output_dir.as_ref())?;
     
 	// Run commands
     let mut threads = Vec::with_capacity(videofiles.len());
-    let cmd_lang: Arc<str> = format!("0:{}", params.lang).into();
-    let cmd_long_lang: Arc<str> = format!(
-        "0:{}",
-        langs
-            .get(params.lang.as_ref())
-            .ok_or(ProgramError::LangError(params.lang.into()))?
-    )
-    .into();
-    for (s, v) in file_iter {
-        // mkvmerge -o [dir]/output/[videofile] [videofile] --language 0:jpn --track-name 0:Japanese [subfile]
-        let args: [Arc<str>; 8] = [
-            "-o".into(),
-            format!("{}/{}", output_dir, v).into(),
-            v.clone(),
-            "--language".into(),
-            cmd_lang.clone(),
-            "--track-name".into(),
-            cmd_long_lang.clone(),
-            s.clone(),
-        ];
 
+    for (s, v) in file_iter {
         let vc = v.clone();
-        threads.push(thread::spawn(move || -> ProgramResult<Stdout> {
-            let arg_iter = args.iter().map(|s| s.as_ref());
-            let output = Command::new("mkvmerge").args(arg_iter).output()?;
+		let mut cmd = mkvmerge(output_dir.clone(), v.clone(), params.lang.clone(), language.clone(), s.clone());
+        
+		threads.push(thread::spawn(move || -> ProgramResult<Stdout> {
+			let output = cmd.output()?;
             println!("Multiplexing {vc}");
             Ok(output.stdout)
         }));
@@ -115,7 +115,7 @@ struct Args {
     subformat: Box<str>,
     /// ISO 639-2 language abbreviation
     #[arg(short, long, default_value = "jpn")]
-    lang: Box<str>,
+    lang: Arc<str>,
 }
 
 
