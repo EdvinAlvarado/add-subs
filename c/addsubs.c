@@ -62,26 +62,26 @@ typedef struct	{
 	size_t size;
 } StrVec;
 
-void append_strvec(StrVec *v, string s) {
+void append_strvec(StrVec *v, const string s) {
 	v->len += 1;
 	if (v->len > v->size) {
 		v->size *= 2;
 		v->ptr = realloc(v->ptr, v->size * sizeof(string));
 	}
-	strcpy(*(v->ptr + v->len), s);
+	v->ptr[v->len] = strdup(s);
 }
 
 StrVec new_strvec(size_t size) {
 	StrVec ret;
 	ret.size = size;
 	ret.len = 0;
-	ret.ptr = (string *)calloc(size, sizeof(string *)); // check if need to calloc internals;
+	ret.ptr = calloc(size, sizeof(string)); // check if need to calloc internals;
 	return ret;
 }
 
 void free_strvec(StrVec* v) {
 	for (int i = 0; i <= v->len; i++) {
-		free(v->ptr + i);
+		free(v->ptr[i]);
 	}
 	v->len = v->size = 0;
 	v->ptr = NULL;
