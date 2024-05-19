@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::{fs, str, thread};
 use thiserror::Error;
 
-
 #[derive(Debug, Error)]
 pub enum ProgramError {
 	#[error("Not the same amount of video and sub files.")]
@@ -21,10 +20,8 @@ pub enum ProgramError {
 	InputError(#[from] std::io::Error),
 }
 
-
 type Stdout = Vec<u8>;
 type ProgramResult<T> = Result<T, ProgramError>;
-
 
 // mkvmerge -o [dir]/output/[videofile] [videofile] --language 0:jpn --track-name 0:Japanese [subfile]
 fn mkvmerge<P: AsRef<Path>, S: AsRef<str> + Display>(
