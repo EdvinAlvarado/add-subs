@@ -10,14 +10,14 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ProgramError {
-	#[error("Not the same amount of video and sub files.")]
+    #[error("Not the same amount of video and sub files.")]
     MismatchError,
-	#[error("{0} language not supported.")]
+    #[error("{0} language not supported.")]
     LangError(Arc<str>),
-	#[error("User cancelled.")]
+    #[error("User cancelled.")]
     ExitError,
-	#[error("IO error: {0}")]
-	InputError(#[from] std::io::Error),
+    #[error("IO error: {0}")]
+    InputError(#[from] std::io::Error),
 }
 
 type Stdout = Vec<u8>;
@@ -31,10 +31,10 @@ fn mkvmerge<P: AsRef<Path>, S: AsRef<str> + Display>(
     track_name: S,
     subfile_src: S,
 ) -> Command {
-	let lang: Box<str> = format!("0:{}", language).into();
-	let track: Box<str> = format!("0:{}", track_name).into();
-	let mut videofile_out = output_dir.as_ref().to_path_buf();
-	videofile_out.push(videofile_src.as_ref());
+    let lang: Box<str> = format!("0:{}", language).into();
+    let track: Box<str> = format!("0:{}", track_name).into();
+    let mut videofile_out = output_dir.as_ref().to_path_buf();
+    videofile_out.push(videofile_src.as_ref());
     let args = [
         "-o",
         &videofile_out.to_string_lossy(),
@@ -46,20 +46,31 @@ fn mkvmerge<P: AsRef<Path>, S: AsRef<str> + Display>(
         subfile_src.as_ref(),
     ];
 
-	let mut cmd = Command::new("mkvmerge");
-	cmd.args(args);
-	cmd
+    let mut cmd = Command::new("mkvmerge");
+    cmd.args(args);
+    cmd
 }
 
+fn ffs<S: AsRef<str> + Display>(video: S, sub_in: S, sub_out: S) -> Command {
+    let args = [
+        video.as_ref(),
+        "-i",
+        sub_in.as_ref(),
+        "-o",
+        sub_out.as_ref(),
+    ];
+    let mut cmd = Command::new("ffs");
+    cmd.args(args);
+    cmd
+}
 
 fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
-
     // ISO 639.2
     let langs = HashMap::from([
-                              ("jpn", "Japanese"),
-                              ("eng", "English"),
-                              ("spa", "Spanish"),
-                              ("und", "Undetermined"),
+        ("jpn", "Japanese"),
+        ("eng", "English"),
+        ("spa", "Spanish"),
+        ("und", "Undetermined"),
     ]);
     let language: Arc<str> = (*langs
         .get(params.lang.as_ref())
@@ -85,13 +96,13 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 
     // Check
     println!("Joining sub files to these video files.");
-    let file_iter = subfiles.iter().zip(videofiles.iter()); 
+    let file_iter = subfiles.iter().zip(videofiles.iter());
 
     for (sub, vid) in file_iter.clone() {
         println!("{}\t{}", sub, vid);
-    } 
+    }
 
-	// User confirmation
+    // User confirmation
     println!("Are these pairs correct? (Y/n): ");
     let mut answer = String::new();
     std::io::stdin().read_line(&mut answer)?;
@@ -99,12 +110,12 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
         return Err(ProgramError::ExitError);
     }
 
-	// Create output folder
-	let odf: PathBuf = format!("{}/output", params.dir).into();
-	let output_dir: Arc<Path> = odf.into();
-	fs::create_dir(output_dir.as_ref())?;
-    
-	// Run commands
+    // Create output folder
+    let odf: PathBuf = format!("{}/output", params.dir).into();
+    let output_dir: Arc<Path> = odf.into();
+    fs::create_dir(output_dir.as_ref())?;
+
+    // Run commands
     let mut threads = Vec::with_capacity(videofiles.len());
 
     for (s, v) in file_iter {
@@ -117,9 +128,13 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
             s.clone(),
         );
 
-        
-		threads.push(thread::spawn(move || -> ProgramResult<Stdout> {
-			let output = cmd.output()?;
+        let mut subsync_cmd = ffs(v.clone(), s.clone(), s.clone());
+
+        threads.push(thread::spawn(move || -> ProgramResult<Stdout> {
+            if params.sync {
+                subsync_cmd.output()?;
+            }
+            let output = cmd.output()?;
             println!("Multiplexing {vc}");
             Ok(output.stdout)
         }));
@@ -144,16 +159,17 @@ struct Args {
     /// ISO 639-2 language abbreviation
     #[arg(short, long, default_value = "jpn")]
     lang: Arc<str>,
+    #[arg(short,long, action=clap::ArgAction::SetTrue)]
+    sync: bool,
 }
-
 
 fn main() -> Result<(), MainError> {
     let args = Args::parse();
 
     for res in addsubs(args)? {
-		let stdout = res?;
-		let rs = String::from_utf8_lossy(&stdout);
-		println!("{}", rs);
-	}
-	Ok(())
+        let stdout = res?;
+        let rs = String::from_utf8_lossy(&stdout);
+        println!("{}", rs);
+    }
+    Ok(())
 }
