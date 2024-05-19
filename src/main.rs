@@ -27,12 +27,27 @@ type ProgramResult<T> = Result<T, ProgramError>;
 
 
 // mkvmerge -o [dir]/output/[videofile] [videofile] --language 0:jpn --track-name 0:Japanese [subfile]
-fn mkvmerge<P: AsRef<Path>, S: AsRef<str> + Display>(output_dir: P, videofile_src: S, language: S, track_name: S, subfile_src: S) -> Command {
+fn mkvmerge<P: AsRef<Path>, S: AsRef<str> + Display>(
+    output_dir: P,
+    videofile_src: S,
+    language: S,
+    track_name: S,
+    subfile_src: S,
+) -> Command {
 	let lang: Box<str> = format!("0:{}", language).into();
 	let track: Box<str> = format!("0:{}", track_name).into();
 	let mut videofile_out = output_dir.as_ref().to_path_buf();
 	videofile_out.push(videofile_src.as_ref());
-	let args = ["-o", &videofile_out.to_string_lossy(), videofile_src.as_ref(), "--language", lang.as_ref(), "--track-name", track.as_ref(), subfile_src.as_ref()];
+    let args = [
+        "-o",
+        &videofile_out.to_string_lossy(),
+        videofile_src.as_ref(),
+        "--language",
+        lang.as_ref(),
+        "--track-name",
+        track.as_ref(),
+        subfile_src.as_ref(),
+    ];
 
 	let mut cmd = Command::new("mkvmerge");
 	cmd.args(args);
@@ -49,23 +64,32 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
                               ("spa", "Spanish"),
                               ("und", "Undetermined"),
     ]);
-    let language: Arc<str> = (*langs.get(params.lang.as_ref()).ok_or(ProgramError::LangError(params.lang.clone()))?).into();
+    let language: Arc<str> = (*langs
+        .get(params.lang.as_ref())
+        .ok_or(ProgramError::LangError(params.lang.clone()))?)
+    .into();
 
     // Create list of files.
     let mut videofiles = Vec::with_capacity(12);
     let mut subfiles = Vec::with_capacity(12);
     for file in fs::read_dir(params.dir.as_ref())? {
         let f: Arc<str> = file?.file_name().to_string_lossy().into();
-        if f.contains(params.videoformat.as_ref()) {videofiles.push(f);}
-        else if f.contains(params.subformat.as_ref()) {subfiles.push(f);}
+        if f.contains(params.videoformat.as_ref()) {
+            videofiles.push(f);
+        } else if f.contains(params.subformat.as_ref()) {
+            subfiles.push(f);
+        }
     }
     videofiles.sort();
     subfiles.sort();
-    if videofiles.len() != subfiles.len() {return Err(ProgramError::MismatchError);}
+    if videofiles.len() != subfiles.len() {
+        return Err(ProgramError::MismatchError);
+    }
 
     // Check
     println!("Joining sub files to these video files.");
     let file_iter = subfiles.iter().zip(videofiles.iter()); 
+
     for (sub, vid) in file_iter.clone() {
         println!("{}\t{}", sub, vid);
     } 
@@ -74,8 +98,9 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     println!("Are these pairs correct? (Y/n): ");
     let mut answer = String::new();
     std::io::stdin().read_line(&mut answer)?;
-    if answer.contains("n") {return Err(ProgramError::ExitError);}
-	
+    if answer.contains("n") {
+        return Err(ProgramError::ExitError);
+    }
 
 	// Create output folder
 	let odf: PathBuf = format!("{}/output", params.dir).into();
@@ -87,7 +112,14 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 
     for (s, v) in file_iter {
         let vc = v.clone();
-		let mut cmd = mkvmerge(output_dir.clone(), v.clone(), params.lang.clone(), language.clone(), s.clone());
+        let mut cmd = mkvmerge(
+            output_dir.clone(),
+            v.clone(),
+            params.lang.clone(),
+            language.clone(),
+            s.clone(),
+        );
+
         
 		threads.push(thread::spawn(move || -> ProgramResult<Stdout> {
 			let output = cmd.output()?;
@@ -97,7 +129,6 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     }
     Ok(threads.into_iter().map(|t| t.join().unwrap()).collect())
 }
-
 
 /// mkvmerge wrapper to bulk add subtitles to videofiles.
 /// An output folder will be created with the multiplexed video files.
