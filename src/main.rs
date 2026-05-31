@@ -70,6 +70,14 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
         ("jpn", "Japanese"),
         ("eng", "English"),
         ("spa", "Spanish"),
+        ("fre", "French"),
+        ("chi", "Chinese"),
+        ("kor", "Korean"),
+        ("deu", "German"),
+        ("por", "Portuguese"),
+        ("ita", "Italian"),
+        ("rus", "Russian"),
+        ("zhs", "Chinese Simplified"),
         ("und", "Undetermined"),
     ]);
     let language: Arc<str> = (*langs
