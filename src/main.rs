@@ -78,7 +78,23 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
         ("ita", "Italian"),
         ("rus", "Russian"),
         ("zhs", "Chinese Simplified"),
+        ("zht", "Chinese Traditional"),
         ("und", "Undetermined"),
+        ("fre", "French"),
+        ("ara", "Arabic"),
+        ("hin", "Hindi"),
+        ("ben", "Bengali"),
+        ("pan", "Punjabi"),
+        ("jav", "Javanese"),
+        ("kor", "Korean"),
+        ("tam", "Tamil"),
+        ("tel", "Telugu"),
+        ("vie", "Vietnamese"),
+        ("urd", "Urdu"),
+        ("tur", "Turkish"),
+        ("tha", "Thai"),
+        ("pol", "Polish"),
+        ("ukr", "Ukrainian"),
     ]);
     let language: Arc<str> = (*langs
         .get(params.lang.as_ref())
