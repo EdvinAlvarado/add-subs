@@ -31,8 +31,8 @@ fn mkvmerge<P: AsRef<Path>, S: AsRef<str> + Display>(
     track_name: S,
     subfile_src: S,
 ) -> Command {
-    let lang: Box<str> = format!("0:{}", language).into();
-    let track: Box<str> = format!("0:{}", track_name).into();
+    let lang: Box<str> = format!("0:{language}").into();
+    let track: Box<str> = format!("0:{track_name}").into();
     let mut videofile_out = output_dir.as_ref().to_path_buf();
     videofile_out.push(videofile_src.as_ref());
     let args = [
@@ -64,7 +64,7 @@ fn ffs<S: AsRef<str> + Display>(video: S, sub_in: S, sub_out: S) -> Command {
     cmd
 }
 
-fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
+fn addsubs(params: &Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     // ISO 639.2
     let langs = HashMap::from([
         ("jpn", "Japanese"),
@@ -96,10 +96,12 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
         ("pol", "Polish"),
         ("ukr", "Ukrainian"),
     ]);
-    let language: Arc<str> = (*langs
-        .get(params.lang.as_ref())
-        .ok_or(ProgramError::LangError(params.lang.clone()))?)
-    .into();
+    let lang = params.lang.clone();
+    let language: Arc<str> = Arc::from(
+        *langs
+            .get(lang.as_ref())
+            .ok_or(ProgramError::LangError(lang))?,
+    );
 
     // Create list of files.
     let mut videofiles = Vec::with_capacity(12);
@@ -123,14 +125,14 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     let file_iter = subfiles.iter().zip(videofiles.iter());
 
     for (sub, vid) in file_iter.clone() {
-        println!("{}\t{}", sub, vid);
+        println!("{sub}\t{vid}");
     }
 
     // User confirmation
     println!("Are these pairs correct? (Y/n): ");
     let mut answer = String::new();
     std::io::stdin().read_line(&mut answer)?;
-    if answer.contains("n") {
+    if answer.contains('n') {
         return Err(ProgramError::ExitError);
     }
 
@@ -142,6 +144,7 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
     // Run commands
     let mut threads = Vec::with_capacity(videofiles.len());
 
+    let sync = params.sync;
     for (s, v) in file_iter {
         let vc = v.clone();
         let mut cmd = mkvmerge(
@@ -155,7 +158,7 @@ fn addsubs(params: Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
         let mut subsync_cmd = ffs(v.clone(), s.clone(), s.clone());
 
         threads.push(thread::spawn(move || -> ProgramResult<Stdout> {
-            if params.sync {
+            if sync {
                 subsync_cmd.output()?;
             }
             let output = cmd.output()?;
@@ -190,10 +193,10 @@ struct Args {
 fn main() -> Result<(), MainError> {
     let args = Args::parse();
 
-    for res in addsubs(args)? {
+    for res in addsubs(&args)? {
         let stdout = res?;
         let rs = String::from_utf8_lossy(&stdout);
-        println!("{}", rs);
+        println!("{rs}");
     }
     Ok(())
 }

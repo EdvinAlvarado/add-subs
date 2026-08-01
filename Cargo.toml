@@ -1,6 +1,6 @@
 [package]
 name = "addsubs"
-version = "2.3.2"
+version = "2.3.3"
 edition = "2024"
 
 
@@ -12,3 +12,23 @@ strip = true # Automatically strip symbols from the binary
 clap = { version = "4.5.4", features = ["derive"] }
 main_error = "0.1.2"
 thiserror = "2"
+
+[lints.clippy]
+# UM, ACTUALLY
+pedantic = { level = "deny", priority = -1 }
+# DEVELOPING LINTS
+nursery = { level = "deny", priority = -1 }
+# DENY PANICS
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+unreachable = "deny"
+unimplemented = "deny"
+unchecked_time_subtraction = "deny"
+todo = "deny"
+string_slice = "deny"
+panic_in_result_fn = "deny"
+panic = "deny"
+exit = "deny"
+as_conversions = "deny"
