@@ -18,6 +18,8 @@ pub enum ProgramError {
     ExitError,
     #[error("IO error: {0}")]
     InputError(#[from] std::io::Error),
+    #[error("Join error: {0:?}")]
+    JoinError(Box<dyn std::any::Any + Send>),
 }
 
 type Stdout = Vec<u8>;
@@ -166,7 +168,11 @@ fn addsubs(params: &Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
             Ok(output.stdout)
         }));
     }
-    Ok(threads.into_iter().map(|t| t.join().unwrap()).collect())
+    let ret = threads
+        .into_iter()
+        .map(|t| t.join().map_err(ProgramError::JoinError))
+        .collect::<Result<_, _>>()?;
+    Ok(ret)
 }
 
 /// mkvmerge wrapper to bulk add subtitles to videofiles.
