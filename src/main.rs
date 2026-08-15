@@ -25,6 +25,8 @@ pub enum ProgramError {
 type Stdout = Vec<u8>;
 type ProgramResult<T> = Result<T, ProgramError>;
 
+
+
 // mkvmerge -o [dir]/output/[videofile] [videofile] --language 0:jpn --track-name 0:Japanese [subfile]
 fn mkvmerge<P: AsRef<Path>, S: AsRef<str> + Display>(
     output_dir: P,
@@ -138,6 +140,7 @@ fn addsubs(params: &Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
         return Err(ProgramError::ExitError);
     }
 
+
     // Create output folder
     let odf: PathBuf = format!("{}/output", params.dir).into();
     let output_dir: Arc<Path> = odf.into();
@@ -145,6 +148,7 @@ fn addsubs(params: &Args) -> ProgramResult<Vec<ProgramResult<Stdout>>> {
 
     // Run commands
     let mut threads = Vec::with_capacity(videofiles.len());
+
 
     let sync = params.sync;
     for (s, v) in file_iter {
